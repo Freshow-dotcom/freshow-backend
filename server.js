@@ -1,3 +1,4 @@
+
 const express = require("express");
 const cors = require("cors");
 
@@ -30,9 +31,7 @@ app.post("/create-order", (req, res) => {
 
 // Get All Orders
 app.get("/orders", (req, res) => {
-
     res.json(orders);
-
 });
 
 // Approve Order
@@ -40,49 +39,74 @@ app.post("/approve/:id", (req, res) => {
 
     const id = Number(req.params.id);
 
-    const order = orders.find(
-        o => o.id === id
-    );
+    const order = orders.find(o => o.id === id);
 
     if (!order) {
-
         return res.status(404).json({
             error: "Order Not Found"
         });
+    }
 
+    if (order.status !== "PENDING") {
+        return res.status(400).json({
+            error: "Order is not pending"
+        });
     }
 
     order.status = "PAID";
 
     res.json(order);
-
 });
 
-// ESP32 Check
-app.get("/latest-paid-order", (req, res) => {
+// ESP32 claims the next approved order
+app.post("/claim-next-order", (req, res) => {
 
-    const paidOrders = orders.filter(
+    const order = orders.find(
         o => o.status === "PAID"
     );
 
-    if (paidOrders.length === 0) {
-
+    if (!order) {
         return res.json({
-            item: null
+            order: null,
+            message: "No approved orders"
         });
-
     }
 
-    res.json(
-        paidOrders[paidOrders.length - 1]
-    );
+    order.status = "DISPENSING";
 
+    res.json({
+        order: order
+    });
+});
+
+// ESP32 reports completed dispensing
+app.post("/complete-order/:id", (req, res) => {
+
+    const id = Number(req.params.id);
+
+    const order = orders.find(o => o.id === id);
+
+    if (!order) {
+        return res.status(404).json({
+            error: "Order Not Found"
+        });
+    }
+
+    if (order.status !== "DISPENSING") {
+        return res.status(400).json({
+            error: "Order is not being dispensed"
+        });
+    }
+
+    order.status = "COMPLETED";
+
+    res.json({
+        success: true,
+        order: order
+    });
 });
 
 app.listen(process.env.PORT || 10000, () => {
-
-    console.log(
-        "Freshow Backend Running"
-    );
-
+    console.log("Freshow Backend Running");
 });
+
